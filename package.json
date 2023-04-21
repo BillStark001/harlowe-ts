@@ -1,0 +1,19 @@
+{
+  "name": "harlowe-ts",
+  "version": "1.0.0",
+  "description": "https://foss.heptapod.net/games/harlowe",
+  "main": "dist/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BillStark001/harlowe-ts.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/BillStark001/harlowe-ts/issues"
+  },
+  "homepage": "https://github.com/BillStark001/harlowe-ts#readme"
+}
