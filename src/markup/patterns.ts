@@ -435,7 +435,7 @@ passageLink.main =
 		lexer. It's a bit #awkward having them alongside the string properties like this,
 		keyed to a similar but otherwise disconnected property name...
 	*/
-const Patterns = Object.freeze({
+export const Patterns = Object.freeze({
 	upperLetter: "[A-Z\\u00c0-\\u00de\\u0150\\u0170]",
 	lowerLetter: "[a-z0-9_\\-\\u00df-\\u00ff\\u0151\\u0171]",
 	anyLetter,

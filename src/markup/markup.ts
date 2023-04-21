@@ -6,12 +6,13 @@
 
 import '../utils/polyfill';
 
-import Lexer, { TokenData, TypeOfLexer } from "./lexer";
+import { RuleData, RuleMap, MatchToTokenFunc, TokenData } from './types';
+
+import Lexer, { Token, TypeOfLexer } from "./lexer";
 import Patterns from "./patterns";
 
 const { keys, assign } = Object;
 
-type MatchToTokenFunc = (match: RegExpMatchArray) => TokenData;
 
 /**
 		When passed a Lexer object, this function augments it with rules.
@@ -24,19 +25,19 @@ function rules(Lexer: TypeOfLexer): TypeOfLexer {
 			If given a second parameter, that is used as the property name
 			instead of "innerText"
 		*/
-  function textTokenFn(name: string) {
+  function textTokenFn(name: keyof TokenData): MatchToTokenFunc {
     name = name || "innerText";
-    return function (match: RegExpMatchArray) {
+    return function (match) {
       /**
 					This function returns the rightmost non-zero array-indexed value.
 					It's designed for matches created from regexes that only have 1 group.
 				*/
-      const innerText = match.reduceRight(function (a, b, index) {
+      const innerText = (match as string[]).reduceRight(function (a, b, index) {
           return a || (index ? b : "");
         }, ""),
-        data: Record<string, string> = {};
+        data: TokenData = {};
 
-      data[name] = innerText;
+      data[name] = innerText as never;
 
       return data;
     };
@@ -67,7 +68,7 @@ function rules(Lexer: TypeOfLexer): TypeOfLexer {
 			Alters the rules object's fn methods, so that their returned objects
 			have 'type', 'match' and 'innerMode' properties assigned to them.
 		*/
-  function setupRules(mode, target) {
+  function setupRules(mode: string[], target: RuleMap) {
     /**
 				Iterate over every rule in the object (the "target").
 			*/
@@ -119,15 +120,15 @@ function rules(Lexer: TypeOfLexer): TypeOfLexer {
     /**
 				The standard TwineMarkup mode.
 			*/
-    markupMode = [],
+    markupMode: string[] = [],
     /**
 				The contents of macro tags - expressions and other macros.
 			*/
-    macroMode = [],
+    macroMode: string[] = [],
     /**
 				The contents of strings - just escaped characters and closing quote marks.
 			*/
-    stringMode = [];
+    stringMode: string[] = [];
 
   /**
 			These rules objects contain each ordered category of rules.
@@ -169,7 +170,7 @@ function rules(Lexer: TypeOfLexer): TypeOfLexer {
 			*/
     align: {
       fn(match) {
-        let align;
+        const ret: TokenData = {};
         const arrow = match[1],
           centerIndex = arrow.indexOf("><");
 
@@ -180,18 +181,18 @@ function rules(Lexer: TypeOfLexer): TypeOfLexer {
 							halve the left-align - hence I multiply by 50 instead of 100
 							to convert to a percentage.)
 						*/
-          align = Math.round((centerIndex / (arrow.length - 2)) * 50);
-          if (align === 25) {
-            align = "center";
+          const alignVar = Math.round((centerIndex / (arrow.length - 2)) * 50);
+          if (alignVar === 25) {
+            ret.align = "center";
           }
         } else if (arrow[0] === "<" && arrow.slice(-1) === ">") {
-          align = "justify";
+          ret.align = "justify";
         } else if (arrow.indexOf(">") > -1) {
-          align = "right";
+          ret.align = "right";
         } else if (arrow.indexOf("<") > -1) {
-          align = "left";
+          ret.align = "left";
         }
-        return { align };
+        return ret;
       },
     },
     /**
@@ -205,32 +206,31 @@ function rules(Lexer: TypeOfLexer): TypeOfLexer {
 			*/
     column: {
       fn(match) {
-        let column;
         const arrow = match[1],
-          centerIndex = arrow.indexOf("|");
+          centerIndex = arrow.indexOf("|"),
+          ret: TokenData = {
+            width: /\|+/.exec(arrow)?.[0].length,
+            marginLeft: /^=*/.exec(arrow)?.[0].length,
+            marginRight: /=*$/.exec(arrow)?.[0].length,
+          }
 
         if (centerIndex && centerIndex < arrow.length - 1) {
-          column = "center";
+          ret.column = "center";
         } else if (arrow[0] === "|" && arrow.slice(-1) === "|") {
-          column = "none";
+          ret.column = "none";
         } else if (centerIndex === arrow.length - 1) {
-          column = "right";
+          ret.column = "right";
         } else if (!centerIndex) {
-          column = "left";
+          ret.column = "left";
         }
-        return {
-          column,
-          width: /\|+/.exec(arrow)[0].length,
-          marginLeft: /^=*/.exec(arrow)[0].length,
-          marginRight: /=*$/.exec(arrow)[0].length,
-        };
+        return ret;
       },
     },
   });
   /**
 			All block rules have a single specific canFollow and cannotFollow.
 		*/
-  const blockRuleConstraint = (prev) => {
+  const blockRuleConstraint = (prev: TokenData) => {
     switch (prev && prev.type) {
       case null:
       case "br":
@@ -376,7 +376,7 @@ function rules(Lexer: TypeOfLexer): TypeOfLexer {
     verbatimOpener: {
       fn(match) {
         let number = match[0].length,
-          matches = {};
+          matches: Record<string, string> = {};
 
         matches["verbatim" + number] = "verbatim";
 
@@ -554,6 +554,7 @@ function rules(Lexer: TypeOfLexer): TypeOfLexer {
               return true;
           }
         }
+        return false;
       },
     },
 
@@ -647,7 +648,7 @@ function rules(Lexer: TypeOfLexer): TypeOfLexer {
 								authors using them as bare colours aren't unwittingly
 								using horridly oversaturated shades.
 							*/
-          mapping = {
+          mapping: Record<string, string> = {
             red: "e61919",
             orange: "e68019",
             yellow: "e5e619",
@@ -666,7 +667,7 @@ function rules(Lexer: TypeOfLexer): TypeOfLexer {
             grey: "888",
           };
 
-        if (hasOwnProperty.call(mapping, m)) {
+        if (mapping.hasOwnProperty(m)) {
           colour = "#" + mapping[m];
         } else {
           colour = m;
@@ -770,7 +771,7 @@ function rules(Lexer: TypeOfLexer): TypeOfLexer {
       "matches",
       "doesNotMatch",
       "bind",
-    ].reduce((a, e) => {
+    ].reduce((a: RuleMap, e) => {
       a[e] = {
         fn: emptyFn,
         cannotFollowText: true,
@@ -786,7 +787,7 @@ function rules(Lexer: TypeOfLexer): TypeOfLexer {
       "subtraction",
       "multiplication",
       "division",
-    ].reduce((a, e) => {
+    ].reduce((a: RuleMap, e) => {
       a[e] = { fn: emptyFn };
       return a;
     }, {}),
@@ -857,7 +858,7 @@ function rules(Lexer: TypeOfLexer): TypeOfLexer {
       allRules[key].plainCompare = true;
     } else {
       allRules[key].pattern = RegExp(
-        "^(?:" + Patterns[key] + ")",
+        "^(?:" + Patterns[key as never] + ")",
         /**
 						All TwineMarkup patterns are case-insensitive.
 					*/

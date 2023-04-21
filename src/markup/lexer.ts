@@ -8,31 +8,9 @@
 /*eslint strict:[2,"function"]*/
 
 import '../utils/polyfill';
+import { RuleMap, TokenData } from './types';
 
-const rules = {};
-
-export type TokenData = {
-  type: string;
-  aka?: string;
-
-  place?: string;
-  start?: number;
-  end?: number;
-
-  text?: string;
-  innerText?: string;
-  children?: TokenData[];
-  innerMode?: string[];
-};
-
-export type RuleData = {
-  message?: string;
-  isFront?: boolean;
-  matches?: Record<string, string>;
-  cannotCross?: Array<string>;
-  name?: string;
-  hidden?: boolean;
-};
+const rules: RuleMap = {};
 
 /**
     The "prototype" object for lexer tokens.
@@ -41,7 +19,7 @@ export type RuleData = {
   */
 export class Token implements TokenData {
 
-  type: string = '';
+  type?: string;
   aka?: string;
 
   place?: string;
@@ -56,6 +34,9 @@ export class Token implements TokenData {
   message?: string;
   isFront?: boolean;
   matches?: Record<string, string>;
+  cannotCross?: Array<string>;
+  name?: string;
+  hidden?: boolean;
 
   constructor(tokenData: TokenData) {
     const self = this as any;
@@ -280,7 +261,7 @@ export class Token implements TokenData {
       if (token.matches) {
         for (let ft = 0; ft < frontTokenStack.length; ft += 1) {
           let { type } = frontTokenStack[ft];
-          if (type in token.matches) {
+          if (type! in token.matches) {
             foldTokens(this, token, frontTokenStack[ft]);
             frontTokenStack = frontTokenStack.slice(ft + 1);
             folded = true;
@@ -350,14 +331,14 @@ function lex(parentToken: Token, fold?: boolean) {
     let i = 0,
       l = mode?.length ?? -1;
     for (; i < l; i += 1) {
-      const rule = rules[mode[i]];
+      const rule = rules[mode![i]];
 
       /**
           Before running the pattern, check to see if this rule is valid right now.
           If so, then do it.
         */
       if (
-        (rule.constraint && !rule.constraint(lastToken)) ||
+        (rule.constraint && !rule.constraint(lastToken!)) ||
         /**
               If a token cannot follow text, the check is a bit tricky: the last text token hasn't been forged yet.
               So, this line must be used:
@@ -368,14 +349,14 @@ function lex(parentToken: Token, fold?: boolean) {
               PlainCompare rules are compared only as strings.
             */
         (rule.plainCompare
-          ? !slice.startsWith(rule.pattern)
+          ? !slice.startsWith(rule.pattern!)
           : /**
 								.test() is several times faster than .exec(), so only run the latter
 								once the former passes. This means there's a perf hit when a match IS
 								found (as .exec() must be run separately to .test()) but it should be balanced
 								by the number of rules which will not match.
 							*/
-          !rule.pattern.test(slice))
+          !rule.pattern!.test(slice))
       ) {
         continue;
       }
@@ -388,7 +369,7 @@ function lex(parentToken: Token, fold?: boolean) {
           are met...
         */
       const tokenData = rule.fn(
-        rule.plainCompare ? rule.pattern : rule.pattern.exec(slice)
+        rule.plainCompare ? rule.pattern as string : rule.pattern!.exec(slice) as string[]
       );
       /**
           ...such as this: if it would be a Back token, it must match with a Front token.
@@ -403,7 +384,7 @@ function lex(parentToken: Token, fold?: boolean) {
           */
         for (; frontTokenStack && ft < frontTokenStack.length; ft += 1) {
           let { type, aka } = frontTokenStack[ft] as Token;
-          if (type in tokenData.matches) {
+          if (type! in tokenData.matches) {
             isMatchingBack = true;
             break;
           }
@@ -422,7 +403,7 @@ function lex(parentToken: Token, fold?: boolean) {
               parenthesis cannot cross the stringOpener to match the
               macroFront.
             */
-          if (tokenData.cannotCross?.indexOf(type) > -1) {
+          if (tokenData.cannotCross?.indexOf(type!) ?? -1 > -1) {
             // This unconventional way to break the loop is used to simplify the
             // "was the loop fruitless" check below.
             ft = frontTokenStack.length - 1;
@@ -565,7 +546,7 @@ function foldTokens(parentToken: Token, backToken: Token, frontToken: Token) {
       Recall that a Back token's "matches" array maps Front token types
       (the key) to full token types (the value).
     */
-  backToken.type = backToken.matches![frontToken.type];
+  backToken.type = backToken.matches![frontToken.type!];
 
   /**
       Change its text and innerText to reflect its contents.
@@ -652,12 +633,12 @@ export class Lexer {
 			The (initially empty) rules object should be augmented with
 			whatever rules the language requires.
 		*/
-  static rules = rules;
+  static readonly rules = rules;
   /**
       The (initially empty) modes object should be filled with
       the language's modes, as well.
     */
-  static modes: Record<string, string[]> = {};
+  static readonly modes: Record<string, string[]> = {};
 }
 
 export type TypeOfLexer = typeof Lexer;

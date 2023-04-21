@@ -2,8 +2,10 @@
   "name": "harlowe-ts",
   "version": "1.0.0",
   "description": "https://foss.heptapod.net/games/harlowe",
-  "main": "dist/index.js",
+  "main": "dist/main.js",
   "scripts": {
+    "build": "tsc",
+    "start": "npm run build & node dist/main.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
