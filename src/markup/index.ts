@@ -10,6 +10,11 @@ export {
   Patterns
 } from './patterns';
 
+export {
+  type CodeWalkerEvent, 
+  CodeWalker
+} from './walker';
+
 import {
   Markup
 } from './markup';
