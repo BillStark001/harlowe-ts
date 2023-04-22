@@ -1,27 +1,28 @@
-const pAssign = <T extends {}, U>(target: T, ...sources: U[]): T & U => {
+/* eslint-disable @typescript-eslint/no-explicit-any */
+const pAssign = <T extends object, U>(target: T, ...sources: U[]): T & U => {
   if (target === undefined || target === null) {
     throw new TypeError('Cannot convert undefined or null to object');
   }
 
-  var output = Object(target);
-  for (var index = 1; index < sources.length; index++) {
-    var source = sources[index];
+  const output = Object(target);
+  for (let index = 1; index < sources.length; index++) {
+    const source = sources[index];
     if (source !== undefined && source !== null) {
-      for (var nextKey in source) {
-        if (source.hasOwnProperty(nextKey)) {
+      for (const nextKey in source) {
+        if (Object.hasOwnProperty.call(source, nextKey)) {
           output[nextKey] = source[nextKey];
         }
       }
     }
   }
   return output;
-}
+};
 
 const pIsNaN = (value: any): boolean => {
   return value !== null // Number(null) => 0
     && (value != value // NaN != NaN
       || +value != value // Number(falsy) => 0 && falsy == 0...
-    )
+    );
 };
 
 const pIsFinite = (value: any) => {
@@ -56,7 +57,7 @@ const pInclude = function <T>(this: T[], searchElement: T, fromIndex = 0): boole
     return this.indexOf.call(this, searchElement, fromIndex) > -1;
   }
 
-  let O = Object(this), length = parseInt(O.length);
+  const O = Object(this), length = parseInt(O.length);
   if (length <= 0) {
     return false;
   }
@@ -83,8 +84,9 @@ declare global {
   }
   interface ObjectConstructor {
     is(x: any, y: any): boolean;
-    assign<T extends {}, U>(target: T, ...sources: U[]): T & U;
+    assign<T extends object, U>(target: T, ...sources: U[]): T & U;
   }
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   interface Array<T> {
     include<T>(this: T[], searchElement: T, fromIndex?: number): boolean;
   }

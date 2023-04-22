@@ -14,7 +14,11 @@ Press "Debug View" and then click the 🔍 icons to see a step-by-step guide of 
 [[slicer test -> slicer target]]
 `;
 
-const pieces = CodeSlicer.slice(testPassage);
+const pieces = CodeSlicer.slice(testPassage, {
+  included: ['text', 'tag'],
+  skipped: [],
+  withTypeRecord: true,
+});
 
 for (const piece of pieces) {
   console.log(piece);

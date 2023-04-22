@@ -59,7 +59,7 @@ const slice = (text: string, options?: Partial<SlicerOptions>) => {
           end: node.end ?? -1,
           text: node.text ?? node.innerText ?? '',
           type: type,
-          types: opt.withTypeRecord ? [...records] : [],
+          types: opt.withTypeRecord ? [...records] : undefined,
         });
       }
       if (opt.skipped.indexOf(type) >= 0 || !opt.goFurther) {
@@ -72,10 +72,20 @@ const slice = (text: string, options?: Partial<SlicerOptions>) => {
   return results;
 };
 
-const CodeSlicer = {
-  slice,
+const replace = (text: string, replacements: CodePiece[]) => {
+  const repl = replacements.sort((x, y) => y.start - x.start);
+  let ret = text;
+  for (const { text, start, end } of repl) {
+    if (end < start || start < 0 || end < 0 || start >= text.length || end >= text.length)
+      continue;
+    ret = ret.substring(0, start) + text + ret.substring(end);
+  }
+  return ret;
 };
 
-Object.freeze(CodeSlicer);
+export const CodeSlicer = Object.freeze({
+  slice,
+  replace,
+});
 
 export default CodeSlicer;
