@@ -1,7 +1,7 @@
 /**
   The Lexer accepts plain strings, and, given a set of rules, transforms
   them to a tree of tokens.
-	
+  
   Consumers must augment this object's 'rules' property.
 */
 
@@ -23,11 +23,11 @@ export class Token implements TokenData {
   aka?: string;
 
   place?: string;
-  start: number = -1;
-  end: number = -1;
+  start = -1;
+  end = -1;
 
   text?: string;
-  innerText: string = '';
+  innerText = '';
   children: Token[] = [];
   innerMode?: string[];
 
@@ -39,6 +39,7 @@ export class Token implements TokenData {
   hidden?: boolean;
 
   constructor(tokenData: TokenData) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const self = this as any;
     for (const j in tokenData) {
       self[j as keyof TokenData] = tokenData[j as keyof TokenData];
@@ -88,7 +89,7 @@ export class Token implements TokenData {
   /**
       lastChildEnd provides the end index of the last child token,
       allowing the start index of a new token to be calculated.
-    	
+      
       Hence, when there are no children, it defaults to the start
       index of this token.
     */
@@ -104,7 +105,7 @@ export class Token implements TokenData {
       their ranges - an example is (if:), which is a macro token whose start is 0,
       but contains a macroName token whose start is 1.
       In that case, the index of the first child should be 1.
-    	
+      
       We determine the difference by comparing the text and innerText positions -
       (if:)'s text is "(if:)" but innerText is "if:"
     */
@@ -207,18 +208,18 @@ export class Token implements TokenData {
 
   /**
       Convert this token in-place into a text token, in the simplest manner possible.
-    	
+      
       TODO: Really, this should combine this with all adjacent text tokens.
     */
   demote() {
-    this.type = "text";
+    this.type = 'text';
   }
 
   /**
       Convert this token in-place into an early error token, which renders as a <tw-error>.
     */
   error(message: string) {
-    this.type = "error";
+    this.type = 'error';
     this.message = message;
   }
 
@@ -227,9 +228,9 @@ export class Token implements TokenData {
       LEX() may be turned to string to provide an overview of its contents.
     */
   toString() {
-    let ret = this.type + "(" + this.start + "→" + this.end + ")";
+    let ret = this.type + '(' + this.start + '→' + this.end + ')';
     if (this.children && this.children.length > 0) {
-      ret += "[" + this.children + "]";
+      ret += '[' + this.children + ']';
     }
     return ret;
   }
@@ -260,7 +261,7 @@ export class Token implements TokenData {
         */
       if (token.matches) {
         for (let ft = 0; ft < frontTokenStack.length; ft += 1) {
-          let { type } = frontTokenStack[ft];
+          const { type } = frontTokenStack[ft];
           if (type! in token.matches) {
             foldTokens(this, token, frontTokenStack[ft]);
             frontTokenStack = frontTokenStack.slice(ft + 1);
@@ -284,10 +285,10 @@ function lex(parentToken: Token, fold?: boolean) {
   const src = parentToken.innerText;
 
   let /**
-				The frontTokenStack's items are "front" tokens, those
-				that pair up with a "back" token to make a token representing
-				an arbitrarily nestable rule.
-			*/
+        The frontTokenStack's items are "front" tokens, those
+        that pair up with a "back" token to make a token representing
+        an arbitrarily nestable rule.
+      */
     frontTokenStack: Token[] | null = null,
     /**
         index ticks upward as we advance through the src.
@@ -297,15 +298,16 @@ function lex(parentToken: Token, fold?: boolean) {
     index = 0,
     firstUnmatchedIndex = index,
     /**
-        The endIndex is the terminating position in which to stop lexing.
-      */
-    endIndex = src.length,
-    /**
         This caches the most recently created token between iterations.
         This must be 'null' and not 'undefined' because some canFollow
         arrays may contain null, to mean the start of input.
       */
     lastToken: Token | null = null;
+
+  /**
+        The endIndex is the terminating position in which to stop lexing.
+      */
+  const endIndex = src.length;
 
   /**
       Run through the src, character by character, matching all the
@@ -319,7 +321,7 @@ function lex(parentToken: Token, fold?: boolean) {
         either parentToken.innerMode, or the innerMode of the recentmost
         unmatched frontToken.
       */
-    let mode = (
+    const mode = (
       frontTokenStack && frontTokenStack.length
         ? frontTokenStack[0]
         : parentToken
@@ -328,8 +330,8 @@ function lex(parentToken: Token, fold?: boolean) {
         Run through all the rules in the current mode in turn.
         Note that modeStack[0] means "the current mode in the modeStack".
       */
-    let i = 0,
-      l = mode?.length ?? -1;
+    let i = 0;
+    const l = mode?.length ?? -1;
     for (; i < l; i += 1) {
       const rule = rules[mode![i]];
 
@@ -344,18 +346,18 @@ function lex(parentToken: Token, fold?: boolean) {
               So, this line must be used:
             */
         (rule.cannotFollowText &&
-          (lastToken?.type === "text" || firstUnmatchedIndex < index)) ||
+          (lastToken?.type === 'text' || firstUnmatchedIndex < index)) ||
         /**
               PlainCompare rules are compared only as strings.
             */
         (rule.plainCompare
           ? !slice.startsWith(rule.pattern!)
           : /**
-								.test() is several times faster than .exec(), so only run the latter
-								once the former passes. This means there's a perf hit when a match IS
-								found (as .exec() must be run separately to .test()) but it should be balanced
-								by the number of rules which will not match.
-							*/
+                .test() is several times faster than .exec(), so only run the latter
+                once the former passes. This means there's a perf hit when a match IS
+                found (as .exec() must be run separately to .test()) but it should be balanced
+                by the number of rules which will not match.
+              */
           !rule.pattern!.test(slice))
       ) {
         continue;
@@ -383,7 +385,8 @@ function lex(parentToken: Token, fold?: boolean) {
             tokenData's matches, or -1.
           */
         for (; frontTokenStack && ft < frontTokenStack.length; ft += 1) {
-          let { type, aka } = frontTokenStack[ft] as Token;
+          const t = frontTokenStack[ft] as Token;
+          let type = t.type;
           if (type! in tokenData.matches) {
             isMatchingBack = true;
             break;
@@ -393,8 +396,8 @@ function lex(parentToken: Token, fold?: boolean) {
               of the actual type for cannotCross comparisons. This is currently
               (as of 11-2021) used only for verbatimOpeners.
             */
-          if (aka) {
-            type = aka;
+          if (t.aka) {
+            type = t.aka;
           }
           /**
               If there is a front token which this back token "cannot cross" -
@@ -427,7 +430,7 @@ function lex(parentToken: Token, fold?: boolean) {
         */
       if (firstUnmatchedIndex < index) {
         parentToken.addChild({
-          type: "text",
+          type: 'text',
           text: src.slice(firstUnmatchedIndex, index),
           innerMode: mode,
         });
@@ -488,7 +491,7 @@ function lex(parentToken: Token, fold?: boolean) {
     if (i === l) {
       index += 1;
       if (lastToken === null) {
-        lastToken = new Token({ type: "text" });
+        lastToken = new Token({ type: 'text' });
       }
     }
   }
@@ -498,7 +501,7 @@ function lex(parentToken: Token, fold?: boolean) {
     */
   if (firstUnmatchedIndex < index) {
     parentToken.addChild({
-      type: "text",
+      type: 'text',
       text: src.slice(firstUnmatchedIndex, index),
       innerMode: (frontTokenStack?.length ? frontTokenStack[0] : parentToken)
         .innerMode,
@@ -542,7 +545,7 @@ function foldTokens(parentToken: Token, backToken: Token, frontToken: Token) {
 
   /**
       Change its type to the actual type, without the "Back" suffix.
-    	
+      
       Recall that a Back token's "matches" array maps Front token types
       (the key) to full token types (the value).
     */
@@ -551,7 +554,7 @@ function foldTokens(parentToken: Token, backToken: Token, frontToken: Token) {
   /**
       Change its text and innerText to reflect its contents.
     */
-  backToken.innerText = "";
+  backToken.innerText = '';
   for (let i = 0, l = backToken.children.length; i < l; i++) {
     backToken.innerText += backToken.children[i].text;
   }
@@ -564,7 +567,7 @@ function foldTokens(parentToken: Token, backToken: Token, frontToken: Token) {
   /**
       The text includes the original enclosing tokens around the
       innerText.
-    	
+      
       In the case of a hook, this reflects the syntax structure:
       "[" + hook contents + "]"
     */
@@ -573,17 +576,17 @@ function foldTokens(parentToken: Token, backToken: Token, frontToken: Token) {
   /**
       Copy other properties that the Front token possesses but
       the Back token does not.
-    	
+      
       Assumption: that the Back token and Front token will never
       have colliding props. If so, then they are left as they are.
-    	
+      
       This uses Object.keys() because Chrome deopts for-in over
       the frontToken object.
     */
-  for (let key in frontToken) {
+  for (const key in frontToken) {
     if (
-      frontToken.hasOwnProperty(key) &&
-      !backToken.hasOwnProperty(key)
+      Object.prototype.hasOwnProperty.call(frontToken, key) &&
+      !Object.prototype.hasOwnProperty.call(backToken, key)
     ) {
       backToken[key as keyof Token] = frontToken[key as keyof Token] as never;
     }
@@ -614,10 +617,10 @@ export class Lexer {
       Flat refers to whether the tokens are folded (front and back
       tokens converted into a single subtree node).
     */
-  static lex(src: string, place = "", innerMode = "start", flat = false) {
+  static lex(src: string, place = '', innerMode = 'start', flat = false) {
     return lex(
       new Token({
-        type: "root",
+        type: 'root',
         place,
         start: 0,
         end: src.length,
@@ -630,9 +633,9 @@ export class Lexer {
     );
   }
   /**
-			The (initially empty) rules object should be augmented with
-			whatever rules the language requires.
-		*/
+      The (initially empty) rules object should be augmented with
+      whatever rules the language requires.
+    */
   static readonly rules = rules;
   /**
       The (initially empty) modes object should be filled with
