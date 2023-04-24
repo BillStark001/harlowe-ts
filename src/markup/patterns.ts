@@ -7,7 +7,7 @@
 */
 
 
-/**
+/**x
     Escapes characters in a string so that RegExp(str) produces a valid regex.
   */
 function escape(str: string | Record<string, unknown>) {

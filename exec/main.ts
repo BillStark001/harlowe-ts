@@ -1,6 +1,7 @@
 import CodeSlicer from '../src/toolbox/slicer';
 import Markup from '../src/markup';
 import { parse } from 'ts-command-line-args';
+import { getSpansFromPassage, separatePassage } from '../src/project/passage';
 
 interface HarloweToolArgs {
   src: string;
@@ -30,6 +31,9 @@ console.log(parse<HarloweToolArgs>({
 
 
 const testPassage = `
+      
+<!-- @ starting node -->
+
 Or, type some Harlowe code in this text area, and click ▶ to see it render.
 
 \\(set: _style to (text-style:"buoy"), $word to "this")(enchant:$word, _style)\\
@@ -39,11 +43,17 @@ Or, type some Harlowe code in this text area, and click ▶ to see it render.
 
 
 
-<!--test1-->
+<!-- @ test1 -->
+<!-- # gan si huang xu dong --> 
 
 
 
+<!-- @ 111 -->
 
+ 
+
+
+<!--@gansihuangxudong-->
 
 This panel ↓ will show any variables that are set by the code, as well as any enchantments applied to the prose using enchantment macros like \`(enchant:)\`.
 
@@ -52,10 +62,18 @@ Press "Debug View" and then click the 🔍 icons to see a step-by-step guide of 
 [[slicer test -> slicer target]]
 
 
-<!--test2-->
+<!--@test2-->
 `;
 
 const ast = Markup.lex(testPassage);
+
+console.log(ast);
+console.log(getSpansFromPassage(ast, 2, 3));
+console.log(separatePassage(ast, 'ddd/dd', {
+  escapeLeadingReturns: 2,
+  escapeTrailingReturns: 2,
+  escapeSameLineTrailingReturn: true
+}));
 
 const pieces = CodeSlicer.slice(testPassage, {
   included: ['text', 'tag'],
