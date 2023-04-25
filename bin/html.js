@@ -41,6 +41,7 @@ const convertToStoryForm = (html) => {
     return undefined;
   }
   const attrs = storyRoot.attrs;
+  const startNode = Number(attrs.startnode ?? attrs['start-node'] ?? attrs.startNode);
   const tags = storyRoot.querySelectorAll('tw-tag');
   const passages = storyRoot.querySelectorAll('tw-passagedata');
 
@@ -110,10 +111,15 @@ const convertToStoryForm = (html) => {
     const attrs = passage.attrs;
     const content = passage.text;
     const name = attrs.name ?? (attrs.pid && `#${attrs.pid}`) ?? '';
+    const pid = attrs.pid ? Number(attrs.pid) : undefined;
+
+    if (startNode == pid)
+      ret.desc.startPassage = name;
+    console.log(startNode, pid, startNode == pid);
 
     ret.passages.push({
       name: name,
-      pid: attrs.pid ? Number(attrs.pid) : undefined,
+      pid: pid,
       tags: attrs.tags?.split(/\s/).filter((x) => !!x),
       position: parseNumberPair(attrs.position),
       size: parseNumberPair(attrs.size),

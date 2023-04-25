@@ -3,8 +3,9 @@ interface HarloweToolArgs {
   rec?: string;
   dst?: string;
   slice: boolean;
-  recv: boolean;
-  convert: boolean;
+  recover: boolean;
+  extract: boolean;
+  hydrate: boolean;
   help: boolean;
   include?: string[];
   exclude?: string[];
