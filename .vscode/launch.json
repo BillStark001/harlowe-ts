@@ -5,6 +5,17 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "Binary File",
+      "program": "${workspaceFolder}/bin/main.js",
+      "request": "launch",
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "args": ["-s", "src", "-d", "dst"],
+      "type": "node"
+    },
+    
+    {
       "command": "npm run build",
       "name": "Compile to JavaScript",
       "request": "launch",
@@ -30,7 +41,7 @@
       "runtimeExecutable": "node",
       "runtimeArgs": ["--nolazy", "-r", "ts-node/register/transpile-only"],
 
-      "args": ["${workspaceFolder}/exec/main.ts", "-s", "src", "-d", "dst"],
+      "args": ["${workspaceFolder}/exec/main.ts", "gansihuangxudong", "-s", "src", "-d", "dst"],
       
       "cwd": "${workspaceRoot}",
       "internalConsoleOptions": "openOnSessionStart",

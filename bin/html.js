@@ -1,20 +1,18 @@
 #!/usr/bin/env node
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 /* eslint-disable @typescript-eslint/no-var-requires */
 const { parse } = require('node-html-parser');
-const utils = require('./utils');
+const { createObject } = require('./utils');
+
+/**
+ * @typedef {import('node-html-parser/dist/nodes/html').Attributes} A
+ */
 
 /**
  * @typedef {import('../dist/src/project').StoryData} StoryData
  * @typedef {import('../dist/src/project').PassageDescriptor} PassageDescriptor
  * @typedef {import('../dist/src/project').PassageContentDescriptor} PassageContentDescriptor
  */
-
-/** @param {string} x */
-const _bar = (x) => utils.camelToSnake(x).replace(/_/g, '-');
-/** @param {string} x */
-const _nobar = (x) => utils.snakeToCamel(x.replace(/-/g, '_'));
-
-
 
 /**
  * @param {string | undefined} inStr
@@ -52,23 +50,54 @@ const convertToStoryForm = (html) => {
       name: '',
       ifid: attrs.ifid,
       startPassage: '',
+      meta: {},
+      options: {},
     },
+    debugOptions: {},
     tags: [],
     passages: [],
     contents: [],
   };
 
   // form options
-  (attrs.tags || '')
-    .split(/\s/)
-    .filter((x) => !!x)
-    .forEach((b) => {
-      if (!ret.desc.options) ret.desc.options = {};
-      if (b === 'uncompressed-pure-values' || b === 'uncompressed-saves')
-        ret.desc.options.uncompressedPureValues = true;
-      if (b === 'uncompressed-structures' || b === 'uncompressed-saves')
-        ret.desc.options.uncompressedStructures = true;
-    });
+  const attrTags = (attrs.tags || '').split(/\s/).filter((x) => !!x);
+  attrTags.forEach((b) => {
+    if (!ret.desc.options) ret.desc.options = {};
+    if (b === 'uncompressed-pure-values' || b === 'uncompressed-saves')
+      ret.desc.options.uncompressedPureValues = true;
+    if (b === 'uncompressed-structures' || b === 'uncompressed-saves')
+      ret.desc.options.uncompressedStructures = true;
+  });
+
+  // form debug options
+  createObject(
+    [
+      'debug',
+      'evalReplay',
+      'ignoreClickEvents',
+      'ignoreGotos',
+      'speedMultiplier',
+    ],
+    (attrs.options || '')
+      .split(/\s/)
+      .reduce(
+        (/** @type {A} */ acc, curr) => ((acc[curr] = ''), acc),
+        /** @type {A} */ {}
+      ),
+    (k, v) => (k === 'speedMultiplier' ? Number(v) : true),
+    ret.debugOptions
+  );
+
+  // form meta
+  createObject(
+    ['creator', 'creatorVersion', 'format', 'formatVersion'],
+    attrs,
+    undefined,
+    ret.desc.meta
+  );
+
+  if (attrs.zoom && ret.desc.options !== undefined)
+    ret.desc.options.zoom = Number(attrs.zoom);
 
   // build passage record
   tags.forEach((tag) => {
@@ -98,19 +127,6 @@ const convertToStoryForm = (html) => {
   return ret;
 };
 
-const exampleStory = `
-<tw-storydata startnode=1 options=debug>
-<tw-passagedata pid=1 name=Start>
-
-(enchant:?Page,(background:white)+(color:black))[[Next]]
-&lt;&gt;
-[[Strange...where am I?-&gt;Where am I?]]
-123456
-</tw-passagedata>
-<tw-passagedata pid=2 name=Next  tags="" position="330,618" size="100,100">[[Last]]</tw-passagedata>
-<tw-passagedata pid=3 name=Last>**Success**</tw-passagedata>
-</tw-storydata>
-`;
-
-const cvrt = convertToStoryForm(exampleStory);
-console.log(cvrt?.passages, cvrt?.contents, cvrt?.tags);
+module.exports = {
+  convertToStoryForm,
+};

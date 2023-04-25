@@ -11,7 +11,6 @@ export type StoryDescriptor = {
 export type StoryMetaData = {
   creator?: string;
   creatorVersion?: string;
-  zoom?: number;
   format?: string;
   formatVersion?: string;
 };
@@ -22,6 +21,7 @@ export type StoryOptions = {
   escapeSameLineTrailingReturn?: boolean;
 
   defaultNameWithPath?: boolean;
+  zoom?: number;
 
   uncompressedPureValues?: boolean;
   uncompressedStructures?: boolean;
