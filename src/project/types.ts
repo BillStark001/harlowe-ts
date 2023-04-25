@@ -57,9 +57,12 @@ export type PassageSpan = {
 
 export type TagDescriptor = {
   name: string;
-  color: string;
+  color?: string;
 };
 
+/**
+ * Raw project file(s).
+ */
 export type StoryData = {
   desc: StoryDescriptor;
   debugOptions?: DebugOptions;

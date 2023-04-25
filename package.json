@@ -4,6 +4,7 @@
   "description": "https://foss.heptapod.net/games/harlowe",
   "main": "dist/exec/main.js",
   "scripts": {
+    "prepare": "npm run build",
     "build": "tsc",
     "start": "npm run build && node dist/exec/main.js",
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -26,6 +27,7 @@
     "eslint-plugin-import": "^2.27.5",
     "eslint-plugin-n": "^15.7.0",
     "eslint-plugin-promise": "^6.1.1",
+    "node-html-parser": "^6.1.5",
     "ts-node": "^10.9.1",
     "typescript": "^5.0.4"
   },
