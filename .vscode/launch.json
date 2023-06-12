@@ -41,7 +41,7 @@
       "runtimeExecutable": "node",
       "runtimeArgs": ["--nolazy", "-r", "ts-node/register/transpile-only"],
 
-      "args": ["${workspaceFolder}/exec/main.ts", "gansihuangxudong", "-s", "src", "-d", "dst"],
+      "args": ["${workspaceFolder}/exec/main.ts", "slice", "test/assets/test_passage.harlowe", "test/cache/", "-i", "text", "tag", "-t", "-f", "txt"],
       
       "cwd": "${workspaceRoot}",
       "internalConsoleOptions": "openOnSessionStart",

@@ -24,6 +24,7 @@
   "homepage": "https://github.com/BillStark001/harlowe-ts#readme",
   "devDependencies": {
     "@types/node": "^18.16.0",
+    "@types/yargs": "^17.0.24",
     "@typescript-eslint/eslint-plugin": "^5.59.0",
     "command-line-args": "^5.2.1",
     "eslint": "^8.39.0",
@@ -35,5 +36,8 @@
     "ts-command-line-args": "^2.5.0",
     "ts-node": "^10.9.1",
     "typescript": "^5.0.4"
+  },
+  "dependencies": {
+    "yargs": "^17.7.2"
   }
 }

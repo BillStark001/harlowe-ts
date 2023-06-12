@@ -1,86 +1,180 @@
+import fs from 'fs';
+import path from 'path';
+
+import yargs, { Arguments, CamelCaseKey } from 'yargs';
+
 import CodeSlicer from '../src/toolbox/slicer';
 import Markup from '../src/markup';
-import { parse } from 'ts-command-line-args';
 import { getSpansFromPassage, separatePassage } from '../src/project/passage';
+import { exit } from 'process';
 
-interface HarloweToolArgs {
-  src: string;
-  rec?: string;
-  dst?: string;
-  slice: boolean;
-  recv: boolean;
-  help: boolean;
-  include?: string[];
-  exclude?: string[];
+
+const FORMAT_LIST = ['html', 'xml', 'harlowe', 'json', 'txt'];
+
+type ParseResult<T> = { [key in keyof Arguments<T> as key | CamelCaseKey<key>]: Arguments<T>[key] };
+
+// argument definition
+
+const argDefinition = yargs
+  .positional('cmd', {
+    choices: ['slice', 'sep', 'separate', 'repl', 'replace', 'synth', 'synthesize'],
+    describe: 'Subcommand'
+  })
+  .positional('src', {
+    type: 'string',
+    describe: 'Source',
+    alias: 's',
+  })
+  .positional('dst', {
+    type: 'string',
+    describe: 'Destination',
+    alias: 'd',
+  })
+  .option('include', {
+    type: 'array',
+    describe: 'Included types',
+    alias: 'i',
+  })
+  .option('exclude', {
+    type: 'array',
+    describe: 'Excluded types',
+    alias: 'x',
+  })
+  .option('typeRecord', {
+    type: 'boolean',
+    describe: 'Retain type records',
+    alias: 't',
+  })
+  .option('format', {
+    choices: FORMAT_LIST,
+    describe: 'Format',
+    alias: 'f',
+  })
+  .option('encoding', {
+    type: 'string',
+    describe: 'Encoding',
+    alias: 'e'
+  })
+  .demandCommand()
+  .help();
+
+const argv = argDefinition.parse() as ParseResult<object>;
+
+const parseStringArrayArgs = (x: unknown) => {
+  if (!x)
+    return [];
+  if (x instanceof Array)
+    return x.map(x => String(x));
+  return String(x).split(/[,;，；]/g).filter(x => !!x).map(x => x.trim());
+};
+
+const command = String(argv._[0] ?? '').trim().toLowerCase();
+const include = parseStringArrayArgs(argv.include ?? argv.i);
+const exclude = parseStringArrayArgs(argv.exclude ?? argv.x);
+const src = path.normalize(String(argv.src ?? argv.source ?? argv._[1] ?? ''));
+const dst = path.normalize(String(argv.dst ?? argv.dest ?? argv.destination ?? argv._[2] ?? ''));
+const encoding = String((argv.encoding ?? argv.e) || 'utf-8');
+const format = String((argv.format ?? argv.f) || '').toLowerCase() || undefined;
+
+
+// validation
+
+const validate = <T = unknown>(arg: T, name: string, ...vals: ((x: T) => boolean)[]) => {
+  for (const val of vals) {
+    try {
+      if (val(arg)) {
+        continue;
+      }
+    } finally { }
+    console.error(`Argument ${name}(=${JSON.stringify(arg)}) violates validation rule: ${val.name || val.toString()}.`);
+    argDefinition.showHelp();
+    exit(1);
+  }
+};
+
+const isExistent = (pathStr: string): boolean => {
+  return fs.existsSync(pathStr);
+};
+
+const isDirectory = (pathStr: string): boolean => {
+  return fs.existsSync(pathStr) && fs.lstatSync(pathStr).isDirectory();
+};
+
+const isFile = (pathStr: string): boolean => {
+  return fs.existsSync(pathStr) && fs.lstatSync(pathStr).isFile();
+};
+
+const isWritableOrCreatable = (pathStr: string): boolean => {
+
+  try {
+    fs.accessSync(pathStr, fs.constants.F_OK);
+    return true;
+  } catch (err) {
+    try {
+      fs.writeFileSync(pathStr, '');
+      return true;
+    } catch (writeErr) {
+      return false;
+    }
+  }
+};
+
+
+// utils
+
+const shouldSkip = (text: string) => /^\s*$/.test(text);
+
+// exec
+
+if (command.startsWith('slice')) {
+  validate(src, 'src', isFile);
+  validate(dst, 'dst', isWritableOrCreatable);
+
+  const withTxtRecord = format == 'txt';
+  const realDst = isDirectory(dst) ? 
+    path.join(dst, path.parse(src).name) : 
+    dst.toLowerCase().endsWith('.json') ? dst.substring(0, dst.length - 5) : dst;
+
+  const passage = fs.readFileSync(src, { encoding: encoding as BufferEncoding });
+  const pieces = CodeSlicer.slice(passage, {
+    included: include,
+    skipped: exclude,
+    withTypeRecord: !!(argv.typeRecord ?? argv.withTypeRecord ?? argv.t),
+  });
+  
+  if (withTxtRecord) {
+    const fd = fs.openSync(realDst + '.txt', 'w');
+    for (const { text } of pieces) {
+      if (shouldSkip(text))
+        continue;
+      if (text.indexOf('\n') >= 0 || text.startsWith('"'))
+        fs.writeFileSync(fd, JSON.stringify(text));
+      else
+        fs.writeFileSync(fd, text);
+      fs.writeFileSync(fd, '\n');
+    }
+    fs.closeSync(fd);
+  }
+
+  fs.writeFileSync(realDst + '.json', JSON.stringify(pieces, undefined, 2));
+
+} else {
+  console.error('No proper command assigned.');
+  argDefinition.showHelp();
+  exit(1);
 }
 
-console.log(process.argv);
-console.log(parse<HarloweToolArgs>({
-  src: { type: String, alias: 's' },
-  dst: { type: String, optional: true, alias: 'd' },
-  rec: { type: String, optional: true, alias: 'r', },
-  slice: { type: Boolean },
-  recv: { type: Boolean },
-  help: { type: Boolean, alias: 'h', description: 'Prints this usage guide' },
-  include: { type: String, multiple: true, optional: true, alias: 'n' },
-  exclude: { type: String, multiple: true, optional: true, alias: 'x' },
-},{
-  helpArg: 'help',
-  headerContentSections: [{ header: 'Harlowe Toolbox', content: 'Thanks for using Our Library' }],
-},));
 
 
-const testPassage = `
-      
-<!-- @ starting node -->
+// const testPassage = ``;
 
-Or, type some Harlowe code in this text area, and click ▶ to see it render.
+// const ast = Markup.lex(testPassage);
 
-\\(set: _style to (text-style:"buoy"), $word to "this")(enchant:$word, _style)\\
+// console.log(ast);
+// console.log(getSpansFromPassage(ast, 2, 3));
+// console.log(separatePassage(ast, 'ddd/dd', {
+//   escapeLeadingReturns: 2,
+//   escapeTrailingReturns: 2,
+//   escapeSameLineTrailingReturn: true
+// }));
 
-<img src="test src" alt="test alt">
-
-
-
-
-<!-- @ test1 -->
-<!-- # gan si huang xu dong --> 
-
-
-
-<!-- @ 111 -->
-
- 
-
-
-<!--@gansihuangxudong-->
-
-This panel ↓ will show any variables that are set by the code, as well as any enchantments applied to the prose using enchantment macros like \`(enchant:)\`.
-
-Press "Debug View" and then click the 🔍 icons to see a step-by-step guide of how Harlowe processed a macro.
-
-[[slicer test -> slicer target]]
-
-
-<!--@test2-->
-`;
-
-const ast = Markup.lex(testPassage);
-
-console.log(ast);
-console.log(getSpansFromPassage(ast, 2, 3));
-console.log(separatePassage(ast, 'ddd/dd', {
-  escapeLeadingReturns: 2,
-  escapeTrailingReturns: 2,
-  escapeSameLineTrailingReturn: true
-}));
-
-const pieces = CodeSlicer.slice(testPassage, {
-  included: ['text', 'tag'],
-  skipped: [],
-  withTypeRecord: true,
-});
-
-for (const piece of pieces) {
-  console.log(piece);
-}
