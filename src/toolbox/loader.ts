@@ -1,24 +1,9 @@
-#!/usr/bin/env node
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-/* eslint-disable @typescript-eslint/no-var-requires */
-const { parse } = require('node-html-parser');
-const { createObject } = require('./utils');
+import { parse } from 'node-html-parser';
+import { StoryData } from '../project';
+import { Attributes } from 'node-html-parser/dist/nodes/html';
+import { createObject } from '../utils/html';
 
-/**
- * @typedef {import('node-html-parser/dist/nodes/html').Attributes} A
- */
-
-/**
- * @typedef {import('../dist/src/project').StoryData} StoryData
- * @typedef {import('../dist/src/project').PassageDescriptor} PassageDescriptor
- * @typedef {import('../dist/src/project').PassageContentDescriptor} PassageContentDescriptor
- */
-
-/**
- * @param {string | undefined} inStr
- * @returns {[number, number] | undefined}
- */
-const parseNumberPair = (inStr) => {
+const parseNumberPair = (inStr: string | undefined): [number, number] | undefined => {
   const ret = inStr?.trim().split(/,\s*/);
   if (ret == undefined || ret.length == 0 || (ret.length == 1 && ret[0] == ''))
     return undefined;
@@ -28,11 +13,7 @@ const parseNumberPair = (inStr) => {
   return [retNum[0] ?? 0, retNum[1] ?? 0];
 };
 
-/**
- * @param {string} html
- * @return {StoryData | undefined}
- */
-const convertToStoryForm = (html) => {
+export const loadHtmlProject = (html: string): StoryData | undefined => {
   const root = parse(html);
 
   // prepare data
@@ -45,8 +26,7 @@ const convertToStoryForm = (html) => {
   const tags = storyRoot.querySelectorAll('tw-tag');
   const passages = storyRoot.querySelectorAll('tw-passagedata');
 
-  /** @type {StoryData} */
-  const ret = {
+  const ret: StoryData = {
     desc: {
       name: '',
       ifid: attrs.ifid,
@@ -82,8 +62,8 @@ const convertToStoryForm = (html) => {
     (attrs.options || '')
       .split(/\s/)
       .reduce(
-        (/** @type {A} */ acc, curr) => ((acc[curr] = ''), acc),
-        /** @type {A} */ {}
+        (acc, curr) => ((acc[curr] = ''), acc),
+        {} as Attributes
       ),
     (k, v) => (k === 'speedMultiplier' ? Number(v) : true),
     ret.debugOptions
@@ -115,7 +95,6 @@ const convertToStoryForm = (html) => {
 
     if (startNode == pid)
       ret.desc.startPassage = name;
-    console.log(startNode, pid, startNode == pid);
 
     ret.passages.push({
       name: name,
@@ -131,8 +110,4 @@ const convertToStoryForm = (html) => {
   });
 
   return ret;
-};
-
-module.exports = {
-  convertToStoryForm,
 };

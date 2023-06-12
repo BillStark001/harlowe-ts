@@ -3,10 +3,12 @@ import path from 'path';
 
 import yargs, { Arguments, CamelCaseKey } from 'yargs';
 
-import CodeSlicer from '../src/toolbox/slicer';
-import Markup from '../src/markup';
-import { getSpansFromPassage, separatePassage } from '../src/project/passage';
+import CodeSlicer, { CodePiece, SlicerOptions } from '../src/toolbox/slicer';
+// import Markup from '../src/markup';
+// import { getSpansFromPassage, separatePassage } from '../src/project/passage';
 import { exit } from 'process';
+import { loadHtmlProject } from '../src/toolbox/loader';
+import { parseComment } from '../src/project/passage';
 
 
 const FORMAT_LIST = ['html', 'xml', 'harlowe', 'json', 'txt'];
@@ -29,6 +31,11 @@ const argDefinition = yargs
     type: 'string',
     describe: 'Destination',
     alias: 'd',
+  })
+  .positional('res', {
+    type: 'string',
+    describe: 'Resource',
+    alias: 'r',
   })
   .option('include', {
     type: 'array',
@@ -92,10 +99,6 @@ const validate = <T = unknown>(arg: T, name: string, ...vals: ((x: T) => boolean
   }
 };
 
-const isExistent = (pathStr: string): boolean => {
-  return fs.existsSync(pathStr);
-};
-
 const isDirectory = (pathStr: string): boolean => {
   return fs.existsSync(pathStr) && fs.lstatSync(pathStr).isDirectory();
 };
@@ -126,6 +129,10 @@ const shouldSkip = (text: string) => /^\s*$/.test(text);
 
 // exec
 
+type CodePieceExtra = {
+  name: string
+};
+
 if (command.startsWith('slice')) {
   validate(src, 'src', isFile);
   validate(dst, 'dst', isWritableOrCreatable);
@@ -136,11 +143,32 @@ if (command.startsWith('slice')) {
     dst.toLowerCase().endsWith('.json') ? dst.substring(0, dst.length - 5) : dst;
 
   const passage = fs.readFileSync(src, { encoding: encoding as BufferEncoding });
-  const pieces = CodeSlicer.slice(passage, {
+  const ext = path.parse(src).ext.toLowerCase();
+  const options: Partial<SlicerOptions<CodePieceExtra>> = {
     included: include,
     skipped: exclude,
     withTypeRecord: !!(argv.typeRecord ?? argv.withTypeRecord ?? argv.t),
-  });
+  };
+
+  const pieces: CodePiece<CodePieceExtra>[] = [];
+
+  if (ext == '.html') {
+    const proj = loadHtmlProject(passage);
+    for (const { name, content } of proj?.contents ?? []) {
+      CodeSlicer.slice(content, { ...options, externalData: { name }})
+        .forEach((x) => pieces.push(x));
+    }
+  } else if (ext == '.harlowe') {
+    CodeSlicer.slice(passage, options).forEach((x) => {
+      if (options.withTypeRecord 
+        && x.type == 'text' 
+        && x.types?.length == 3
+        && x.types?.[1] == 'comment'
+        && parseComment(x.text) != undefined)
+        return;
+      pieces.push(x);
+    });
+  }
   
   if (withTxtRecord) {
     const fd = fs.openSync(realDst + '.txt', 'w');
@@ -178,3 +206,4 @@ if (command.startsWith('slice')) {
 //   escapeSameLineTrailingReturn: true
 // }));
 
+exit(0);

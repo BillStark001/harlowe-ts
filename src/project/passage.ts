@@ -5,7 +5,7 @@ const rePassageLeading = /^(\s*)@(\s*)/;
 const reTagLeading = /^(\s*)#/;
 const reSpaceTrailing = /\s+$/;
 
-const tryGetInfo = (str: string) => {
+export const parseComment = (str: string) => {
   let exec: RegExpExecArray | null;
   rePassageLeading.lastIndex = reTagLeading.lastIndex = reSpaceTrailing.lastIndex = 0;
   if ((exec = rePassageLeading.exec(str))) {
@@ -16,7 +16,7 @@ const tryGetInfo = (str: string) => {
     const startStrip = ltSpace >= lSpace ? execLen - ltSpace + lSpace : execLen - ltSpace;
     const endStrip = tSpace >= lSpace ? lSpace : 0;
     return str.substring(startStrip, str.length - endStrip);
-  } else if ((exec == reTagLeading.exec(str))) {
+  } else if ((exec = reTagLeading.exec(str))) {
     return str.split(/\s+/);
   }
   return undefined;
@@ -83,7 +83,7 @@ export const getSpansFromPassage = (
     // parse context
     // leading br's & name comment & []
     if (curType === 'comment') {
-      const info = tryGetInfo(nodes[i]?.innerText ?? '');
+      const info = parseComment(nodes[i]?.innerText ?? '');
       if (typeof info === 'string') {
         lastPassage = addNewSpan(info);
       } else if (lastPassage !== undefined && info instanceof Array) {
