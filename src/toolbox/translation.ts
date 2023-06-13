@@ -1,6 +1,7 @@
 import { CodePiece } from './slicer';
 import * as fs from 'fs'; 
 import { parse } from 'csv-parse/sync';
+import { hasUtf8Bom } from '../utils/object';
 
 export type ProperNounForm = {
   form: string,
@@ -94,13 +95,6 @@ type _row = {
 
 export const getNounNameFormKey = (name: string, form: string) => `${name}.${form}`;
 
-const hasUtf8Bom = (fileContent: string | Buffer) => {
-  if (typeof fileContent === 'string') {
-    fileContent = Buffer.from(fileContent, 'utf-8');
-  }
-  return fileContent[0] === 0xEF && fileContent[1] === 0xBB && fileContent[2] === 0xBF;
-};
-
 export const readGlossaryFile = (path: string, encoding?: BufferEncoding): [
   ProperNounDefinition[],
   Map<string, string>
@@ -138,5 +132,31 @@ export const readGlossaryFile = (path: string, encoding?: BufferEncoding): [
   return [results, targetMap];
 };
 
-// tag optimization
+// txt record builder
 
+const shouldSkip = (text: string) => /^\s*$/.test(text);
+
+export const extractOrderedTextPhrases = <T=void>(pieces: CodePiece<T>[]) => {
+  const set = new Set<string>();
+  const ret: string[] = [];
+  for (const { text } of pieces) {
+    if (shouldSkip(text))
+      continue;
+    if (!set.has(text)) {
+      ret.push(text);
+      set.add(text);
+    }
+  }
+  return ret;
+};
+
+export const replaceOrderedTextPhrases = <T=void>(pieces: CodePiece<T>[], replacements: string[]) => {
+  const phrases = extractOrderedTextPhrases(pieces);
+  const map = new Map<string, number>();
+  phrases.forEach((p, i) => map.set(p, i));
+  const ret: CodePiece<T>[] = pieces.map((p) => ({
+    ...p, 
+    text: replacements[map.get(p.text) ?? -1] ?? p.text
+  }));
+  return ret;
+};

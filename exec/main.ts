@@ -3,14 +3,14 @@ import path from 'path';
 
 import yargs, { Arguments, CamelCaseKey } from 'yargs';
 
-import CodeSlicer, { TypedCodePiece, SlicerOptions } from '../src/toolbox/slicer';
+import CodeSlicer, { TypedCodePiece, SlicerOptions, CodePiece } from '../src/toolbox/slicer';
 // import Markup from '../src/markup';
 // import { getSpansFromPassage, separatePassage } from '../src/project/passage';
 import { exit } from 'process';
 import { loadHtmlProject } from '../src/toolbox/loader';
 import { parseComment } from '../src/project/passage';
 import { CodeWalker } from '../src/markup';
-import { fenceProperNouns, readGlossaryFile } from '../src/toolbox/translation';
+import { extractOrderedTextPhrases, fenceProperNouns, readGlossaryFile } from '../src/toolbox/translation';
 
 
 const FORMAT_LIST = ['html', 'xml', 'harlowe', 'json', 'txt'];
@@ -131,7 +131,6 @@ const isWritableOrCreatable = (pathStr: string): boolean => {
 
 // utils
 
-const shouldSkip = (text: string) => /^\s*$/.test(text);
 
 // exec
 
@@ -147,6 +146,17 @@ const realDst = isDirectory(dst) ?
   path.join(dst, path.parse(src).name) :
   dst.toLowerCase().endsWith('.json') ? dst.substring(0, dst.length - 5) : dst;
 
+const _writeTxt = <T=void>(path: string, pieces: CodePiece<T>[]) => {
+  const fd = fs.openSync(path, 'w');
+  for (const text of extractOrderedTextPhrases(pieces)) {
+    if (text.indexOf('\n') >= 0 || text.startsWith('"'))
+      fs.writeFileSync(fd, JSON.stringify(text));
+    else
+      fs.writeFileSync(fd, text);
+    fs.writeFileSync(fd, '\n');
+  }
+  fs.closeSync(fd);
+};
 
 if (command.startsWith('slice')) {
   validate(src, 'src', isFile);
@@ -163,15 +173,18 @@ if (command.startsWith('slice')) {
   };
 
   const pieces: TypedCodePiece<CodePieceExtra>[] = [];
+  const _o = (x: TypedCodePiece<CodePieceExtra>[]) => (
+    argv.o ?? argv.opt ?? argv.optimize
+  ) ? CodeSlicer.optimize(x) : x;
 
   if (ext == '.html') {
     const proj = loadHtmlProject(passage);
     for (const { name, pid, content } of proj?.contents ?? []) {
-      CodeSlicer.slice(content, { ...options, externalData: { name, pid } })
+      _o(CodeSlicer.slice(content, { ...options, externalData: { name, pid } }))
         .forEach((x) => pieces.push(x));
     }
   } else if (ext == '.harlowe') {
-    CodeSlicer.slice(passage, options).forEach((x) => {
+    _o(CodeSlicer.slice(passage, options)).forEach((x) => {
       if (options.withTypeRecord
         && x.type == 'text'
         && x.types?.length == 3
@@ -183,17 +196,7 @@ if (command.startsWith('slice')) {
   }
 
   if (withTxtRecord) {
-    const fd = fs.openSync(realDst + '.txt', 'w');
-    for (const { text } of pieces) {
-      if (shouldSkip(text))
-        continue;
-      if (text.indexOf('\n') >= 0 || text.startsWith('"'))
-        fs.writeFileSync(fd, JSON.stringify(text));
-      else
-        fs.writeFileSync(fd, text);
-      fs.writeFileSync(fd, '\n');
-    }
-    fs.closeSync(fd);
+    _writeTxt(realDst + '.txt', pieces);
   }
 
   fs.writeFileSync(realDst + '.json', JSON.stringify(pieces, undefined, 2));
@@ -221,12 +224,16 @@ if (command.startsWith('slice')) {
   console.log(realDst);
 
   const [glossary] = readGlossaryFile(res, encoding as BufferEncoding);
-  
+
   const pieces = JSON.parse(fs.readFileSync(src, { encoding: encoding as BufferEncoding })) as TypedCodePiece<CodePieceExtra>[];
   pieces.forEach((piece) => {
     piece.text = fenceProperNouns(piece.text, glossary);
   });
   fs.writeFileSync(realDst + '.json', JSON.stringify(pieces, undefined, 2));
+
+  if (withTxtRecord) {
+    _writeTxt(realDst + '.txt', pieces);
+  }
 
 } else {
   console.error('No proper command assigned.');

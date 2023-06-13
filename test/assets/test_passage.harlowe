@@ -18,6 +18,8 @@ Or, type some Harlowe code in this text area, and click ▶ to see it render.
 Days Since Commitment: (print: $Strike * 14)
 Mental State: (if: $Strike > 54)[(color: #FFC0CB)[Docile Doll]]
 
+[["Everything *is* good. Let's go."->Offworlder Hub]]
+
 <!-- @ 111 -->
 
  

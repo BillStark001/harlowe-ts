@@ -38,6 +38,9 @@ export type TokenData = {
   operator?: string;
   negate?: boolean;
 
+  // link
+  passage?: string;
+
 };
 
 export type MatchToTokenFunc = (match: string | string[]) => TokenData;
