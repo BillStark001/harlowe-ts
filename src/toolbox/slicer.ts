@@ -1,12 +1,15 @@
 import Markup, { CodeWalker, Token } from '../markup';
 import '../utils/polyfill';
 
-export type CodePiece<T = void> = {
+export type MiniCodePiece = {
   start: number;
   end: number;
+  text: string;
+}
+
+export type CodePiece<T = void> = MiniCodePiece & {
   type: string;
   types?: string[];
-  text: string;
   ext?: T;
 };
 
@@ -68,6 +71,7 @@ const slice = <T = void>(text: string | Token | Token[], options?: Partial<Slice
           types: opt.withTypeRecord ? [...records] : undefined,
           ext: options?.externalData
         });
+        skip();
       }
       if (opt.skipped.indexOf(typeRaw) >= 0 || !opt.goFurther) {
         skip();
@@ -79,7 +83,7 @@ const slice = <T = void>(text: string | Token | Token[], options?: Partial<Slice
   return results;
 };
 
-const replace = <T = void>(text: string, replacements: CodePiece<T>[]) => {
+const replace = (text: string, replacements: MiniCodePiece[]) => {
   const repl = replacements.sort((x, y) => y.start - x.start);
   let ret = text;
   for (const { text, start, end } of repl) {

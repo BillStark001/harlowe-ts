@@ -9,6 +9,7 @@ import CodeSlicer, { CodePiece, SlicerOptions } from '../src/toolbox/slicer';
 import { exit } from 'process';
 import { loadHtmlProject } from '../src/toolbox/loader';
 import { parseComment } from '../src/project/passage';
+import { CodeWalker } from '../src/markup';
 
 
 const FORMAT_LIST = ['html', 'xml', 'harlowe', 'json', 'txt'];
@@ -19,7 +20,7 @@ type ParseResult<T> = { [key in keyof Arguments<T> as key | CamelCaseKey<key>]: 
 
 const argDefinition = yargs
   .positional('cmd', {
-    choices: ['slice', 'sep', 'separate', 'repl', 'replace', 'synth', 'synthesize'],
+    choices: ['slice', 'sep', 'separate', 'repl', 'replace', 'synth', 'synthesize', 'lex'],
     describe: 'Subcommand'
   })
   .positional('src', {
@@ -141,6 +142,8 @@ if (command.startsWith('slice')) {
     path.join(dst, path.parse(src).name) : 
     dst.toLowerCase().endsWith('.json') ? dst.substring(0, dst.length - 5) : dst;
 
+  console.log(realDst);
+
   const passage = fs.readFileSync(src, { encoding: encoding as BufferEncoding });
   const ext = path.parse(src).ext.toLowerCase();
   const options: Partial<SlicerOptions<CodePieceExtra>> = {
@@ -185,6 +188,19 @@ if (command.startsWith('slice')) {
 
   fs.writeFileSync(realDst + '.json', JSON.stringify(pieces, undefined, 2));
 
+} else if (command.startsWith('lex')) {
+  validate(src, 'src', isFile);
+  const ext = path.parse(src).ext.toLowerCase();
+  const passage = fs.readFileSync(src, { encoding: encoding as BufferEncoding });
+  if (ext == '.html') {
+    const proj = loadHtmlProject(passage);
+    for (const { name, content } of proj?.contents ?? []) {
+      console.log(name);
+      console.log(CodeWalker.walk(content));
+    }
+  } else if (ext == '.harlowe') {
+    console.log(CodeWalker.walk(passage));
+  }
 } else {
   console.error('No proper command assigned.');
   argDefinition.showHelp();

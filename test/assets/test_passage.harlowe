@@ -14,7 +14,7 @@ Or, type some Harlowe code in this text area, and click ▶ to see it render.
 <!-- @ test1 -->
 <!-- # gan si huang xu dong --> 
 
-
+(link: "I love how it puts me on display, how I'm not allowed anything else.")
 
 <!-- @ 111 -->
 
@@ -23,7 +23,7 @@ Or, type some Harlowe code in this text area, and click ▶ to see it render.
 
 <!--@gansihuangxudong-->
 
-This panel ↓ will show any variables that are set by the code, as well as any enchantments applied to the prose using enchantment macros like \`(enchant:)\`.
+This *panel* ↓ will show any **variables** that are set by the code, as well as any enchantments applied to the prose using enchantment macros like \`(enchant:)\`.
 
 Press "Debug View" and then click the 🔍 icons to see a step-by-step guide of how Harlowe processed a macro.
 

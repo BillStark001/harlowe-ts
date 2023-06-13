@@ -1,9 +1,12 @@
+import Lexer from './lexer';
 import { TokenData } from './types';
 
 export type CodeWalkerEvent = {
   node: TokenData;
   entering: boolean;
 }
+
+const shouldSkip = (text: string) => /^\s*$/.test(text);
 
 export class CodeWalker {
 
@@ -77,6 +80,9 @@ export class CodeWalker {
     return { node: cur, entering: false };
   }
   
+  /**
+   * skip the node and its all trailing nodes.
+   */
   skip(): CodeWalkerEvent | undefined {
     if (this._firstStep) {
       this._firstStep = false;
@@ -89,6 +95,28 @@ export class CodeWalker {
     }
     this._nodes.pop();
     return { node: cur, entering: false };
+  }
+
+  static walk(code: string, layer = 0) {
+    const ast = Lexer.lex(code);
+    const walker = new CodeWalker(ast);
+    layer = Math.max(Math.floor(layer), 0);
+    while (walker.hasNext) {
+      const { node, entering } = walker.step()!;
+      if (!entering) {
+        --layer;
+        continue;
+      }
+      console.log(`${
+        ' '.repeat(layer)
+      }${node.type}(${node.start}->${node.end})${
+        node.name ? '[' + node.name + ']' : ''}`);
+
+      const textDisplay = node.text ?? node.innerText ?? '';
+      if (!shouldSkip(textDisplay))
+        console.log(' '.repeat(layer) + '-> ' + textDisplay.replace(/\r?\n/g, '\\n').substring(0, 128));
+      ++layer;
+    }
   }
 
 }
