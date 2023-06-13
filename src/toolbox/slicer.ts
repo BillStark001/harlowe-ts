@@ -47,7 +47,8 @@ const slice = <T = void>(text: string | Token | Token[], options?: Partial<Slice
 
   while (walker.hasNext) {
     const { node, entering } = walker.step()!;
-    const type = node.type || '';
+    const typeRaw = node.type || '';
+    const type = typeRaw + (node.name ? `[${node.name || ''}]` : '');
     // console.log(`[${records.length - Number(!entering)}] ${entering ? 'entering:' : 'leaving: '} (${node.start}, ${node.end}) of type ${node.type} ${JSON.stringify(node.text ?? node.innerText)}`);
 
     // maintain records
@@ -58,7 +59,7 @@ const slice = <T = void>(text: string | Token | Token[], options?: Partial<Slice
 
     // main logics
     if (entering) {
-      if (opt.included.indexOf(type) >= 0) {
+      if (opt.included.indexOf(typeRaw) >= 0) {
         results.push({
           start: node.start ?? -1,
           end: node.end ?? -1,
@@ -68,7 +69,7 @@ const slice = <T = void>(text: string | Token | Token[], options?: Partial<Slice
           ext: options?.externalData
         });
       }
-      if (opt.skipped.indexOf(type) >= 0 || !opt.goFurther) {
+      if (opt.skipped.indexOf(typeRaw) >= 0 || !opt.goFurther) {
         skip();
       }
     }

@@ -1,63 +1,58 @@
 import { Attributes } from 'node-html-parser/dist/nodes/html';
+import './polyfill';
 
-
-function camelToSnake(camelCaseString: string): string {
+export function camelToSnake(camelCaseString: string): string {
   return camelCaseString.replace(/[A-Z]/g, (match: string, offset: number) => {
     return (offset > 0 ? '_' : '') + match.toLowerCase();
   });
 }
 
-function snakeToCamel(snakeCaseString: string): string {
+export function snakeToCamel(snakeCaseString: string): string {
   return snakeCaseString.replace(/_([a-z])/g, (match: string, capture: string) => {
     return capture.toUpperCase();
   });
 }
 
 const _bar = (x: string): string => camelToSnake(x).replace(/_/g, '-');
+const _variant = (key: string) => [_bar(key), key, key.toLowerCase()];
 
-const createObject = <T extends object>(
+export const createObject = <T extends object>(
   keys: Array<keyof T>,
   attrs: Attributes,
-  cvrt: ((key: keyof T, val: string) => T[keyof T]) | undefined,
-  dflt: T | undefined
+  cvrt?: ((key: keyof T, val: string) => T[keyof T]) | undefined,
+  dflt?: T | undefined
 ): T => {
-  const ret: T = dflt ?? {} as T;
+  const ret: T = { ...(dflt ?? {}) } as T;
   for (const key of keys) {
-    const _key = _bar(String(key));
-    const _val = attrs[_key] ?? attrs[key as string];
+    const [key1, key2, key3] = _variant(String(key));
+    const _val = attrs[key1] ?? attrs[key2] ?? attrs[key3];
     if (_val !== undefined)
       ret[key] = (cvrt !== undefined ? cvrt(key, _val) : _val) as T[keyof T];
   }
   return ret;
 };
 
-/**
- * @template T extends object
- * @param {Array<keyof T>} keys
- * @param {Attributes | undefined} dflt
- * @param {((key: keyof T, val: T[keyof T]) => string | undefined) | undefined} cvrt
- * @param {T} obj
- * @return {Attributes}
- */
-const createAttribute = <T extends object>(
+
+export const infuseObject = <T extends object>(
   keys: Array<keyof T>,
-  obj: T,
-  cvrt: ((key: keyof T, val: T[keyof T]) => string | undefined) | undefined,
-  dflt: Attributes | undefined
-): Attributes => {
-  const ret: Attributes = dflt ?? {};
+  obj: T, 
+  attrs: Attributes,
+  cvrt?: ((key: keyof T, val: T[keyof T]) => string | undefined) | undefined,
+) => {
+  const ret = { ...attrs };
   for (const key of keys) {
-    const _key = _bar(String(key));
-    const retKey = cvrt !== undefined ? cvrt(key, obj[key]) : String(obj[key]);
-    if (retKey !== undefined)
-      ret[_key] = retKey;
+    const val = obj[key];
+    const valStr = cvrt ? cvrt(key, val) : String(val ?? '');
+    let flag = false;
+    inner: for (const keyAttr of _variant(String(key))) {
+      if (Object.keys(attrs).includes(keyAttr)){
+        ret[keyAttr] = valStr ?? '';
+        flag = true;
+        break inner;
+      }
+    }
+    if (!flag)
+      ret[_bar(String(key))] = valStr ?? '';
   }
   return ret;
-};
-
-export {
-  camelToSnake,
-  snakeToCamel,
-  createObject,
-  createAttribute,
 };

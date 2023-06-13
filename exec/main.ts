@@ -108,7 +108,6 @@ const isFile = (pathStr: string): boolean => {
 };
 
 const isWritableOrCreatable = (pathStr: string): boolean => {
-
   try {
     fs.accessSync(pathStr, fs.constants.F_OK);
     return true;
