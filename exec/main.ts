@@ -3,13 +3,14 @@ import path from 'path';
 
 import yargs, { Arguments, CamelCaseKey } from 'yargs';
 
-import CodeSlicer, { CodePiece, SlicerOptions } from '../src/toolbox/slicer';
+import CodeSlicer, { TypedCodePiece, SlicerOptions } from '../src/toolbox/slicer';
 // import Markup from '../src/markup';
 // import { getSpansFromPassage, separatePassage } from '../src/project/passage';
 import { exit } from 'process';
 import { loadHtmlProject } from '../src/toolbox/loader';
 import { parseComment } from '../src/project/passage';
 import { CodeWalker } from '../src/markup';
+import { fenceProperNouns, readGlossaryFile } from '../src/toolbox/translation';
 
 
 const FORMAT_LIST = ['html', 'xml', 'harlowe', 'json', 'txt'];
@@ -20,7 +21,7 @@ type ParseResult<T> = { [key in keyof Arguments<T> as key | CamelCaseKey<key>]: 
 
 const argDefinition = yargs
   .positional('cmd', {
-    choices: ['slice', 'sep', 'separate', 'repl', 'replace', 'synth', 'synthesize', 'lex'],
+    choices: ['slice', 'sep', 'separate', 'repl', 'replace', 'synth', 'synthesize', 'lex', 'opt', 'optimize'],
     describe: 'Subcommand'
   })
   .positional('src', {
@@ -52,6 +53,11 @@ const argDefinition = yargs
     type: 'boolean',
     describe: 'Retain type records',
     alias: 't',
+  })
+  .options('optimize', {
+    type: 'boolean',
+    describe: 'Optimize output',
+    alias: 'o',
   })
   .option('format', {
     choices: FORMAT_LIST,
@@ -130,17 +136,21 @@ const shouldSkip = (text: string) => /^\s*$/.test(text);
 // exec
 
 type CodePieceExtra = {
-  name: string
+  name: string,
+  pid?: number,
 };
+
+// common vars
+
+const withTxtRecord = format == 'txt';
+const realDst = isDirectory(dst) ?
+  path.join(dst, path.parse(src).name) :
+  dst.toLowerCase().endsWith('.json') ? dst.substring(0, dst.length - 5) : dst;
+
 
 if (command.startsWith('slice')) {
   validate(src, 'src', isFile);
   validate(dst, 'dst', isWritableOrCreatable);
-
-  const withTxtRecord = format == 'txt';
-  const realDst = isDirectory(dst) ? 
-    path.join(dst, path.parse(src).name) : 
-    dst.toLowerCase().endsWith('.json') ? dst.substring(0, dst.length - 5) : dst;
 
   console.log(realDst);
 
@@ -152,18 +162,18 @@ if (command.startsWith('slice')) {
     withTypeRecord: !!(argv.typeRecord ?? argv.withTypeRecord ?? argv.t),
   };
 
-  const pieces: CodePiece<CodePieceExtra>[] = [];
+  const pieces: TypedCodePiece<CodePieceExtra>[] = [];
 
   if (ext == '.html') {
     const proj = loadHtmlProject(passage);
-    for (const { name, content } of proj?.contents ?? []) {
-      CodeSlicer.slice(content, { ...options, externalData: { name }})
+    for (const { name, pid, content } of proj?.contents ?? []) {
+      CodeSlicer.slice(content, { ...options, externalData: { name, pid } })
         .forEach((x) => pieces.push(x));
     }
   } else if (ext == '.harlowe') {
     CodeSlicer.slice(passage, options).forEach((x) => {
-      if (options.withTypeRecord 
-        && x.type == 'text' 
+      if (options.withTypeRecord
+        && x.type == 'text'
         && x.types?.length == 3
         && x.types?.[1] == 'comment'
         && parseComment(x.text) != undefined)
@@ -171,7 +181,7 @@ if (command.startsWith('slice')) {
       pieces.push(x);
     });
   }
-  
+
   if (withTxtRecord) {
     const fd = fs.openSync(realDst + '.txt', 'w');
     for (const { text } of pieces) {
@@ -201,6 +211,23 @@ if (command.startsWith('slice')) {
   } else if (ext == '.harlowe') {
     console.log(CodeWalker.walk(passage));
   }
+} else if (command.startsWith('opt')) {
+
+  const res = path.normalize(String(argv.res ?? argv.resource ?? argv._[3] ?? ''));
+  validate(src, 'src', isFile);
+  validate(res, 'res', isFile);
+  validate(dst, 'dst', isWritableOrCreatable);
+
+  console.log(realDst);
+
+  const [glossary] = readGlossaryFile(res, encoding as BufferEncoding);
+  
+  const pieces = JSON.parse(fs.readFileSync(src, { encoding: encoding as BufferEncoding })) as TypedCodePiece<CodePieceExtra>[];
+  pieces.forEach((piece) => {
+    piece.text = fenceProperNouns(piece.text, glossary);
+  });
+  fs.writeFileSync(realDst + '.json', JSON.stringify(pieces, undefined, 2));
+
 } else {
   console.error('No proper command assigned.');
   argDefinition.showHelp();

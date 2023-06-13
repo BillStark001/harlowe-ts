@@ -1,19 +1,24 @@
-import { MiniCodePiece } from './slicer';
+import { CodePiece } from './slicer';
+import * as fs from 'fs'; 
+import { parse } from 'csv-parse/sync';
 
 export type ProperNounForm = {
   form: string,
   literal: string | RegExp,
+  target?: string,
 };
 
 export type ProperNounDefinition = {
-  name: string, 
+  name: string,
   forms: ProperNounForm[],
 };
 
-export type PositionedProperNoun = MiniCodePiece & {
+export type PositionedProperNoun = CodePiece & {
   name: string,
   form: string,
 };
+
+// proper noun tagging
 
 export const compareNoun = (a: PositionedProperNoun, b: PositionedProperNoun): number => {
   if (a.start !== b.start)
@@ -28,17 +33,16 @@ export const compareNoun = (a: PositionedProperNoun, b: PositionedProperNoun): n
 };
 
 export const findProperNouns = (
-  text: string, 
+  text: string,
   glossary: ProperNounDefinition[]
 ) => {
   const res: PositionedProperNoun[] = [];
   for (const { name, forms } of glossary) {
     for (const { form, literal } of forms) {
-      const pattern = typeof literal == 'string' ? 
-        new RegExp(`\\b${literal}\\b`, 'gi') : 
-        new RegExp(literal.source, literal.flags + 
-          (literal.flags.includes('g') ? '' : 'g') + 
-          (literal.flags.includes('i') ? '' : 'i')
+      const pattern = typeof literal == 'string' ?
+        new RegExp(`\\b${literal}\\b`, 'gi') : // case insensitive bu default
+        new RegExp(literal.source, literal.flags +
+          (literal.flags.includes('g') ? '' : 'g')
         );
       pattern.lastIndex = 0;
       let match: RegExpExecArray | null;
@@ -56,8 +60,9 @@ export const stripOverlay = (nouns: PositionedProperNoun[]) => {
   const sorted = nouns.filter(x => x.end > x.start).sort(compareNoun);
   let index = 0;
   while (index < sorted.length - 1) {
-    while (sorted[index].start === sorted[index + 1].start || 
-      sorted[index].end > sorted[index + 1].start)
+    while (index < sorted.length - 1 && (
+      sorted[index].start === sorted[index + 1].start ||
+      sorted[index].end > sorted[index + 1].start))
       sorted.splice(index + 1, 1);
     ++index;
   }
@@ -65,7 +70,7 @@ export const stripOverlay = (nouns: PositionedProperNoun[]) => {
 };
 
 export const fenceProperNouns = (
-  text: string, 
+  text: string,
   glossary: ProperNounDefinition[]
 ): string => {
 
@@ -75,10 +80,63 @@ export const fenceProperNouns = (
   let replacedText = text;
 
   for (const noun of nouns) {
-    replacedText = replacedText.substring(0, noun.start) + 
-      `<span name="${noun.name}" form="${noun.form}" literal="${noun.text}">${noun.text}</span>` + 
+    replacedText = replacedText.substring(0, noun.start) +
+      `<span name="${noun.name}" form="${noun.form}" literal="${noun.text}">${noun.text}</span>` +
       replacedText.substring(noun.end);
   }
 
   return replacedText;
 };
+
+type _row = {
+  name: string, form: string, type: string, literal: string, target: string
+};
+
+export const getNounNameFormKey = (name: string, form: string) => `${name}.${form}`;
+
+const hasUtf8Bom = (fileContent: string | Buffer) => {
+  if (typeof fileContent === 'string') {
+    fileContent = Buffer.from(fileContent, 'utf-8');
+  }
+  return fileContent[0] === 0xEF && fileContent[1] === 0xBB && fileContent[2] === 0xBF;
+};
+
+export const readGlossaryFile = (path: string, encoding?: BufferEncoding): [
+  ProperNounDefinition[],
+  Map<string, string>
+] => {
+  let buffer = fs.readFileSync(path, { encoding });
+  if (hasUtf8Bom(buffer))
+    buffer = buffer.slice(typeof buffer === 'string' ? 1 : 3);
+  const rows: _row[] = parse(buffer, { columns: true, skip_empty_lines: true });
+  const resultMap: Map<string, ProperNounForm[]> = new Map();
+  const targetMap: Map<string, string> = new Map();
+  rows.forEach((row) => {
+    const { name, form, type, literal, target } = row;
+    if (!name)
+      return;
+    if (!resultMap.has(name))
+      resultMap.set(name, []);
+    const realLiteral: string | RegExp = type == 'S' ? new RegExp(`\\b${literal}\\b`, 'g') :
+      type?.toLowerCase() == 'r' ? new RegExp(literal, type == 'R' ? 'g' : 'gi') :
+        literal;
+    resultMap.get(name)!.push({
+      form,
+      literal: realLiteral
+    });
+    const key = getNounNameFormKey(name, form);
+    if (!targetMap.has(key))
+      targetMap.set(key, target);
+  });
+  const results: ProperNounDefinition[] = [];
+  resultMap.forEach((value, key) => {
+    results.push({
+      name: key,
+      forms: value,
+    });
+  });
+  return [results, targetMap];
+};
+
+// tag optimization
+

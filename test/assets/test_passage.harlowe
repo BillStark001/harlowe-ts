@@ -15,6 +15,8 @@ Or, type some Harlowe code in this text area, and click ▶ to see it render.
 <!-- # gan si huang xu dong --> 
 
 (link: "I love how it puts me on display, how I'm not allowed anything else.")
+Days Since Commitment: (print: $Strike * 14)
+Mental State: (if: $Strike > 54)[(color: #FFC0CB)[Docile Doll]]
 
 <!-- @ 111 -->
 

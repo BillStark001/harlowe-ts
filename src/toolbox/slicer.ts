@@ -1,16 +1,16 @@
 import Markup, { CodeWalker, Token } from '../markup';
 import '../utils/polyfill';
 
-export type MiniCodePiece = {
+export type CodePiece<T = void> = {
   start: number;
   end: number;
   text: string;
+  ext?: T;
 }
 
-export type CodePiece<T = void> = MiniCodePiece & {
+export type TypedCodePiece<T = void> = CodePiece<T> & {
   type: string;
   types?: string[];
-  ext?: T;
 };
 
 export type SlicerOptions<T = void> = {
@@ -41,7 +41,7 @@ const slice = <T = void>(text: string | Token | Token[], options?: Partial<Slice
   const walker = new CodeWalker(res);
 
   const records: string[] = [];
-  const results: CodePiece<T>[] = [];
+  const results: TypedCodePiece<T>[] = [];
 
   const skip = () => {
     if (walker.skip())
@@ -83,7 +83,7 @@ const slice = <T = void>(text: string | Token | Token[], options?: Partial<Slice
   return results;
 };
 
-const replace = (text: string, replacements: MiniCodePiece[]) => {
+const replace = <T = void>(text: string, replacements: CodePiece<T>[]) => {
   const repl = replacements.sort((x, y) => y.start - x.start);
   let ret = text;
   for (const { text, start, end } of repl) {

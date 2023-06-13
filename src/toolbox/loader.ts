@@ -105,6 +105,7 @@ export const loadHtmlProject = (html: string): StoryData | undefined => {
     });
     ret.contents.push({
       name: name,
+      pid: pid,
       content: content,
     });
   });

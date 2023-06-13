@@ -46,6 +46,7 @@ export type PassageDescriptor = {
 
 export type PassageContentDescriptor = {
   name: string;
+  pid?: number;
   content: string;
 };
 
