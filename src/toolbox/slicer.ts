@@ -132,10 +132,11 @@ const optimize = <T = void>(pieces: TypedCodePiece<T>[]) => {
 };
 
 const replace = <T = void>(text: string, replacements: CodePiece<T>[]) => {
-  const repl = replacements.sort((x, y) => y.start - x.start);
+  const repl = [...replacements];
+  repl.sort((x, y) => y.start - x.start);
   let ret = text;
   for (const { text, start, end } of repl) {
-    if (end < start || start < 0 || end < 0 || start >= text.length || end >= text.length)
+    if (end < start || start < 0 || end < 0 || start >= ret.length || end > ret.length)
       continue;
     ret = ret.substring(0, start) + text + ret.substring(end);
   }

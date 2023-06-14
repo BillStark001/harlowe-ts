@@ -7,11 +7,13 @@ import CodeSlicer, { TypedCodePiece, SlicerOptions, CodePiece } from '../src/too
 // import Markup from '../src/markup';
 // import { getSpansFromPassage, separatePassage } from '../src/project/passage';
 import { exit } from 'process';
-import { loadHtmlProject } from '../src/toolbox/loader';
+import { loadHtmlProject, saveHtmlProject } from '../src/toolbox/html';
 import { parseComment } from '../src/project/passage';
 import { CodeWalker } from '../src/markup';
-import { extractOrderedTextPhrases, fenceProperNouns, readGlossaryFile } from '../src/toolbox/translation';
+import { extractOrderedTextPhrases, fenceProperNouns, readGlossaryFile, replaceOrderedTextPhrases, restoreProperNouns } from '../src/toolbox/translation';
+import { countNewLine } from '../src/utils/object';
 
+import cliProgress from 'cli-progress';
 
 const FORMAT_LIST = ['html', 'xml', 'harlowe', 'json', 'txt'];
 
@@ -39,6 +41,11 @@ const argDefinition = yargs
     describe: 'Resource',
     alias: 'r',
   })
+  .positional('res2', {
+    type: 'string',
+    describe: 'Resource',
+    alias: 'R',
+  })  
   .option('include', {
     type: 'array',
     describe: 'Included types',
@@ -146,17 +153,43 @@ const realDst = isDirectory(dst) ?
   path.join(dst, path.parse(src).name) :
   dst.toLowerCase().endsWith('.json') ? dst.substring(0, dst.length - 5) : dst;
 
+const doOptimize = !!(argv.o ?? argv.opt ?? argv.optimize);
+
 const _writeTxt = <T=void>(path: string, pieces: CodePiece<T>[]) => {
   const fd = fs.openSync(path, 'w');
   for (const text of extractOrderedTextPhrases(pieces)) {
-    if (text.indexOf('\n') >= 0 || text.startsWith('"'))
-      fs.writeFileSync(fd, JSON.stringify(text));
-    else
-      fs.writeFileSync(fd, text);
-    fs.writeFileSync(fd, '\n');
+    fs.writeFileSync(fd, text, { encoding: encoding as BufferEncoding });
+    fs.writeFileSync(fd, '\n', { encoding: encoding as BufferEncoding });
   }
   fs.closeSync(fd);
 };
+
+const _readTxt = <T=void>(path: string, pieces: CodePiece<T>[]) => {
+  const phrases = extractOrderedTextPhrases(pieces);
+  const result: string[] = [];
+  const data = fs.readFileSync(path, { encoding: encoding as BufferEncoding }).split('\n');
+  let lineNumber = 0;
+  const bar1 = _bar('read txt');
+  bar1.start(phrases.length, 0);
+  for (let i = 0; i < phrases.length; ++i) {
+    const lines = countNewLine(phrases[i]) + 1;
+    let _result = '';
+    for (let _ = 0; _ < lines; ++_)
+      _result += (data[lineNumber++] ?? '').replace(/\r$/, '');
+    result.push(_result);
+    bar1.update(i);
+  }
+  bar1.stop();
+  return result;
+};
+
+const _bar = (label?: string) => new cliProgress.SingleBar({
+  format: `{bar} | ${label ?? 'PROGRESS'} | {percentage}% | {value}/{total} Chunks | Speed: {speed}`,
+}, cliProgress.Presets.shades_classic);
+
+const _key = (name: string, pid?: number) => `#${pid ?? ''}+${JSON.stringify(name)}`;
+
+// real logic
 
 if (command.startsWith('slice')) {
   validate(src, 'src', isFile);
@@ -173,9 +206,7 @@ if (command.startsWith('slice')) {
   };
 
   const pieces: TypedCodePiece<CodePieceExtra>[] = [];
-  const _o = (x: TypedCodePiece<CodePieceExtra>[]) => (
-    argv.o ?? argv.opt ?? argv.optimize
-  ) ? CodeSlicer.optimize(x) : x;
+  const _o = (x: TypedCodePiece<CodePieceExtra>[]) => doOptimize ? CodeSlicer.optimize(x) : x;
 
   if (ext == '.html') {
     const proj = loadHtmlProject(passage);
@@ -201,6 +232,49 @@ if (command.startsWith('slice')) {
 
   fs.writeFileSync(realDst + '.json', JSON.stringify(pieces, undefined, 2));
 
+} else if (command.startsWith('repl')) {
+
+  const res = path.normalize(String(argv.res ?? argv.resource ?? argv._[3] ?? ''));
+
+  validate(src, 'src', isFile);
+  validate(res, 'res', isFile);
+  validate(dst, 'dst', isWritableOrCreatable);
+
+  console.log(realDst);
+
+  const passage = fs.readFileSync(src, { encoding: encoding as BufferEncoding });
+  const ext = path.parse(src).ext.toLowerCase();
+  const pieces = JSON.parse(
+    fs.readFileSync(res, { encoding: encoding as BufferEncoding })
+  ) as CodePiece<CodePieceExtra>[];
+
+  const pieceMap = new Map<string, CodePiece<CodePieceExtra>[]>();
+  for (const piece of pieces) {
+    const key = _key(piece.ext!.name, piece.ext!.pid);
+    if (!pieceMap.has(key))
+      pieceMap.set(key, []);
+    pieceMap.get(key)!.push(piece);
+  }
+
+  if (ext == '.html') {
+    const proj = loadHtmlProject(passage);
+    if (proj == undefined)
+      exit(1);
+    // replace content file
+    for (const c of proj?.contents ?? []) {
+      const { name, pid, content } = c;
+      const key = _key(name, pid);
+      const key2 = _key(name, undefined);
+      c.content = CodeSlicer.replace(content, [
+        ...(pieceMap.get(key) ?? []),
+        ...(pieceMap.get(key2) ?? [])
+      ]);
+    }
+    // replace html
+    const saved = saveHtmlProject(passage, proj);
+    fs.writeFileSync(realDst + '.html', saved, { encoding: encoding as BufferEncoding });
+  }
+
 } else if (command.startsWith('lex')) {
   validate(src, 'src', isFile);
   const ext = path.parse(src).ext.toLowerCase();
@@ -217,22 +291,40 @@ if (command.startsWith('slice')) {
 } else if (command.startsWith('opt')) {
 
   const res = path.normalize(String(argv.res ?? argv.resource ?? argv._[3] ?? ''));
+  const res2 = path.normalize(String(argv.res2 ?? argv.resource2 ?? argv._[4] ?? ''));
   validate(src, 'src', isFile);
   validate(res, 'res', isFile);
   validate(dst, 'dst', isWritableOrCreatable);
 
   console.log(realDst);
 
-  const [glossary] = readGlossaryFile(res, encoding as BufferEncoding);
+  const [glossary, replacements] = readGlossaryFile(res, encoding as BufferEncoding);
 
   const pieces = JSON.parse(fs.readFileSync(src, { encoding: encoding as BufferEncoding })) as TypedCodePiece<CodePieceExtra>[];
-  pieces.forEach((piece) => {
-    piece.text = fenceProperNouns(piece.text, glossary);
-  });
-  fs.writeFileSync(realDst + '.json', JSON.stringify(pieces, undefined, 2));
 
-  if (withTxtRecord) {
-    _writeTxt(realDst + '.txt', pieces);
+  const bar1 = _bar();
+
+  if (doOptimize) {
+    validate(res2, 'res2', isFile);
+    const phrases = _readTxt(res2, pieces);
+    const piecesReplaced = replaceOrderedTextPhrases(pieces, phrases);
+    bar1.start(piecesReplaced.length, 0);
+    piecesReplaced.forEach((piece) => {
+      bar1.increment();
+      piece.text = restoreProperNouns(piece.text, replacements);
+    });
+    bar1.stop();
+    fs.writeFileSync(realDst + '.json', JSON.stringify(piecesReplaced, undefined, 2));
+
+  } else {
+    pieces.forEach((piece) => {
+      piece.text = fenceProperNouns(piece.text, glossary);
+    });
+    fs.writeFileSync(realDst + '.json', JSON.stringify(pieces, undefined, 2));
+  
+    if (withTxtRecord) {
+      _writeTxt(realDst + '.txt', pieces);
+    }
   }
 
 } else {

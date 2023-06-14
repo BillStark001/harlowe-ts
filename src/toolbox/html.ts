@@ -3,6 +3,8 @@ import { StoryData } from '../project';
 import { Attributes } from 'node-html-parser/dist/nodes/html';
 import { createObject } from '../utils/html';
 
+import 'css.escape';
+
 const parseNumberPair = (inStr: string | undefined): [number, number] | undefined => {
   const ret = inStr?.trim().split(/,\s*/);
   if (ret == undefined || ret.length == 0 || (ret.length == 1 && ret[0] == ''))
@@ -111,4 +113,26 @@ export const loadHtmlProject = (html: string): StoryData | undefined => {
   });
 
   return ret;
+};
+
+export const saveHtmlProject = (html: string, proj: StoryData): string => {
+  const root = parse(html);
+  const storyRoot = root.querySelector('tw-storydata');
+  if (!storyRoot)
+    return html;
+  const { /*desc, debugOptions, tags, passages, */contents } = proj;
+  // TODO desc, debug options, tags
+
+  // passages
+  // TODO passage data themselves
+
+  // passage contents
+  for (const { name, pid, content } of contents) {
+    const passage = storyRoot.querySelector(`tw-passagedata[pid="${pid}"][name="${CSS.escape(name)}"]`) ??
+      storyRoot.querySelector(`tw-passagedata[pid="${pid}"]`) ??
+      storyRoot.querySelector(`tw-passagedata[name="${CSS.escape(name)}"]`);
+    if (passage != undefined)
+      passage.set_content(content);
+  }
+  return root.toString();
 };

@@ -1,6 +1,7 @@
 import { CodePiece } from './slicer';
 import * as fs from 'fs'; 
-import { parse } from 'csv-parse/sync';
+import { parse as parseCsv } from 'csv-parse/sync';
+import { parse as parseHtml } from 'node-html-parser';
 import { hasUtf8Bom } from '../utils/object';
 
 export type ProperNounForm = {
@@ -89,6 +90,23 @@ export const fenceProperNouns = (
   return replacedText;
 };
 
+export const restoreProperNouns = (
+  text: string, 
+  replacements: Map<string, string>
+): string => {
+  const html = parseHtml(text);
+  const spanNodes = html.querySelectorAll('span');
+  spanNodes.forEach((node) => {
+    const name = node.attrs.name;
+    const form = node.attrs.form;
+    if (name == undefined || form == undefined)
+      return;
+    const key = getNounNameFormKey(name, form);
+    node.replaceWith(replacements.get(key) || node.innerText);
+  });
+  return html.toString();
+};
+
 type _row = {
   name: string, form: string, type: string, literal: string, target: string
 };
@@ -102,7 +120,7 @@ export const readGlossaryFile = (path: string, encoding?: BufferEncoding): [
   let buffer = fs.readFileSync(path, { encoding });
   if (hasUtf8Bom(buffer))
     buffer = buffer.slice(typeof buffer === 'string' ? 1 : 3);
-  const rows: _row[] = parse(buffer, { columns: true, skip_empty_lines: true });
+  const rows: _row[] = parseCsv(buffer, { columns: true, skip_empty_lines: true });
   const resultMap: Map<string, ProperNounForm[]> = new Map();
   const targetMap: Map<string, string> = new Map();
   rows.forEach((row) => {

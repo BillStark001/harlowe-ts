@@ -11,3 +11,5 @@ export const hasUtf8Bom = (fileContent: string | Buffer) => {
   }
   return fileContent[0] === 0xEF && fileContent[1] === 0xBB && fileContent[2] === 0xBF;
 };
+
+export const countNewLine = (x: string) => (x.match(/\r?\n/g) || []).length;
