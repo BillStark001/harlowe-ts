@@ -2,6 +2,7 @@ import { parse } from 'node-html-parser';
 import { StoryData } from '../project';
 import { Attributes } from 'node-html-parser/dist/nodes/html';
 import { createObject } from '../utils/html';
+import xmlEscape from 'xml-escape';
 
 import 'css.escape';
 
@@ -132,7 +133,7 @@ export const saveHtmlProject = (html: string, proj: StoryData): string => {
       storyRoot.querySelector(`tw-passagedata[pid="${pid}"]`) ??
       storyRoot.querySelector(`tw-passagedata[name="${CSS.escape(name)}"]`);
     if (passage != undefined)
-      passage.set_content(content);
+      passage.set_content(xmlEscape(content));
   }
   return root.toString();
 };
